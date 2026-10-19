@@ -19,8 +19,9 @@ and the rest later from the same 24-word seed. This page does the "later": type 
 4. Take the registration file (no secrets) to any online computer and open
    `https://bitcheque.org/onboard.html#register`. Each 16 cheques take a minute or two of computing.
 
-Reprinting a lost book works the same way: print only numbers above your last cheque used, and destroy the old
-copy if it turns up.
+Reprinting a lost book works the same way, but a reprint has exactly the same cells as the lost copy. If that copy
+may be in someone else's hands, reprint only to move away: make a new book with a new seed and sweep the whole
+balance to it with the next unused cheque, straight away.
 
 ## Build
 
