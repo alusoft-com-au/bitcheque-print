@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bitcheque Print</title>
+<!-- Offline page for printing more cheques of a Bitcheque book. Built into one file by build.py: everything it
+     needs (the wallet's WebAssembly, the BIP-39 word list, the print code) is inside, and it never uses the network. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'">
+<style>
+:root{--ink:#02050A;--paper:#FFFDF7;--bg:#E9ECF1;--line:#c9ced6;--muted:#5b6270;--brand:#FF9341;--brand-d:#D9601F;--ok:#1f7a4d;--bad:#b3261e;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+header svg{width:34px;height:34px;flex:none}
+header h1{font-size:22px;margin:0;line-height:1.2}
+header p{margin:0;color:var(--muted);font-size:14px}
+.net{margin-left:auto;font:700 12px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.04em;padding:6px 10px;border-radius:99px;white-space:nowrap}
+.net.on{background:#fde7e5;color:var(--bad)}.net.off{background:#e3f3ea;color:var(--ok)}
+.card{background:var(--card);border-radius:14px;padding:20px;margin:14px 0;box-shadow:0 1px 3px rgba(2,5,10,.08)}
+.card h2{font-size:17px;margin:0 0 6px;display:flex;align-items:center;gap:10px}
+.card h2 i{font-style:normal;display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;font-size:13px;flex:none}
+.card.dim{opacity:.5;pointer-events:none}
+.card p{margin:6px 0;color:var(--muted);font-size:15px}
+.warn{background:#fff4e8;border-left:4px solid var(--brand);padding:12px 14px;border-radius:8px;font-size:15px;margin:14px 0}
+.warn.bad{background:#fde7e5;border-color:var(--bad)}
+.warn b{color:var(--ink)}
+textarea,input{font:15px ui-monospace,Menlo,Consolas,monospace;width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+textarea:focus,input:focus{outline:none;border-color:var(--ink)}
+.msg{font-size:14px;margin-top:8px;min-height:21px}.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.code{font:700 22px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em}
+.range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.range label{font-size:13px;color:var(--muted);display:grid;gap:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;font:600 13px system-ui;cursor:pointer;color:var(--ink)}
+.chip:hover{border-color:var(--ink)}
+.btns{display:grid;gap:10px;margin-top:12px}
+button.big{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:600 15px system-ui;padding:14px 16px;border-radius:12px;border:1.5px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer}
+button.big small{display:block;font-weight:400;font-size:13px;opacity:.75}
+button.big.done{background:#fff;color:var(--ink)}
+button.big:disabled{opacity:.5;cursor:wait}
+button.big .dl{font-size:20px;line-height:1}
+button.big .tick{margin-left:auto;font-size:18px}
+button.plain{font:600 14px system-ui;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
+ol{margin:8px 0 0;padding-left:22px;color:var(--muted);font-size:15px}ol li{margin:4px 0}
+code{font:14px ui-monospace,Menlo,Consolas,monospace;background:var(--bg);padding:1px 5px;border-radius:5px;color:var(--ink);word-break:break-all}
+footer{color:var(--muted);font-size:13px;text-align:center;margin-top:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#02050A" fill-rule="evenodd" d="M33.750 60.750 L60.237 34.263 Q62.500 32.000 60.237 29.737 L34.263 3.763 Q32.000 1.500 29.737 3.763 L3.763 29.737 Q1.500 32.000 3.763 34.263 L30.250 60.750 L30.250 33.864 A6.6 6.6 0 1 1 33.750 33.864 Z"/></svg>
+  <div><h1>Bitcheque Print</h1><p>Print more cheques of your book, offline</p></div>
+  <span class="net" id="net"></span>
+</header>
+
+<div class="warn" id="netwarn"><b>Use a clean computer with the internet switched off.</b> This page works without any network: everything it needs is inside this one file. Your seed never leaves this computer and is never saved.</div>
+
+<section class="card" id="c1">
+  <h2><i>1</i>Your seed</h2>
+  <p>Type the 24 words of the book's seed, in order, separated by spaces.</p>
+  <textarea id="words" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="orbit lantern velvet …"></textarea>
+  <div class="msg" id="wmsg"></div>
+  <div id="codebox" hidden>
+    <p>Lookup code of this book:</p>
+    <div class="code" id="code"></div>
+    <p>It must match the code printed on your existing sheets. If it does not, a word is wrong.</p>
+  </div>
+</section>
+
+<section class="card dim" id="c2">
+  <h2><i>2</i>Which cheques</h2>
+  <p>A book has cheques 1 to 255. Start after the highest cheque you already have. The explorer shows your last cheque used: a cheque number at or below it can never be used again.</p>
+  <div class="range">
+    <label>From cheque<input id="from" type="number" min="1" max="255" value="16" inputmode="numeric"></label>
+    <label>To cheque<input id="to" type="number" min="1" max="255" value="31" inputmode="numeric"></label>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="msg" id="rmsg"></div>
+</section>
+
+<section class="card dim" id="c3">
+  <h2><i>3</i>Save and print</h2>
+  <p>Each part is saved as a file. Open it, print it, then delete it and empty the trash. Print part A and part B as separate print runs, on two USB printers if you can, and keep the two parts in different places.</p>
+  <div class="btns">
+    <button class="big" data-part="A"><b class="dl">↓</b><span>Save part A<small id="pa">Recipient columns</small></span><span class="tick" id="ta"></span></button>
+    <button class="big" data-part="B"><b class="dl">↓</b><span>Save part B<small id="pb">Amount, exponent and fee columns</small></span><span class="tick" id="tb"></span></button>
+    <button class="big" data-reg="1"><b class="dl">↓</b><span>Save the registration file<small>Public: hashes and your lookup code only, never the seed</small></span><span class="tick" id="tr"></span></button>
+  </div>
+  <div class="msg" id="smsg"></div>
+</section>
+
+<section class="card dim" id="c4">
+  <h2><i>4</i>Then</h2>
+  <ol>
+    <li>Delete the two part files, empty the trash, close this page and switch the computer and printers off.</li>
+    <li>Take the registration file to any online computer and open <code>bitcheque.org/onboard.html#register</code>. A minute or two of computing per 16 cheques registers them. Your account number stays the same.</li>
+    <li>Wait for the next block before you write any of the new cheques.</li>
+  </ol>
+  <div class="warn"><b>Reprinting a lost book?</b> Print only cheque numbers above your last cheque used, never one the lost copy may already have been written on, and destroy the old copy if it turns up.</div>
+  <button class="plain" id="clear">Clear the seed from this page</button>
+</section>
+
+<footer>Bitcheque Print · MIT licence · Alusoft · github.com/alusoft-com-au/bitcheque-print</footer>
+</div>
+
+<script>/*BIP39*/</script>
+<script>/*BOOK*/</script>
+<script>
+(function(){
+const B=window.BCBook, $=id=>document.getElementById(id);
+const WASM=WebAssembly.compile(Uint8Array.from(atob('/*WASM*/'),c=>c.charCodeAt(0)));
+let seed=null, saved={};
+function net(){const on=navigator.onLine;$('net').className='net '+(on?'on':'off');$('net').textContent=on?'ONLINE':'OFFLINE';
+  $('netwarn').className='warn'+(on?' bad':'');}
+addEventListener('online',net);addEventListener('offline',net);net();
+
+$('words').addEventListener('input',async()=>{const t=$('words').value,n=t.trim().split(/\s+/).filter(Boolean).length;seed=null;saved={};
+  $('codebox').hidden=true;['c2','c3','c4'].forEach(c=>$(c).classList.add('dim'));ticks();
+  if(n<24){$('wmsg').className='msg';$('wmsg').textContent=`${n} of 24 words`;return}
+  const s=await B.seedFromWords(t);
+  if(!s){$('wmsg').className='msg bad';$('wmsg').textContent=n>24?'More than 24 words.':'These words are not a valid seed: check the spelling and the order.';return}
+  $('wmsg').className='msg ok';$('wmsg').textContent='Valid seed.';seed=s;
+  $('code').textContent=B.fmtCode(await B.lookupCode(seed,await WASM));$('codebox').hidden=false;
+  ['c2','c3','c4'].forEach(c=>$(c).classList.remove('dim'));range(true)});
+
+function range(reset){const f=+$('from').value,t=+$('to').value,ok=Number.isInteger(f)&&Number.isInteger(t)&&f>=1&&t<=B.BOOK-1&&f<=t;
+  if(reset){saved={};ticks()}$('c3').classList.toggle('dim',!ok||!seed);
+  if(!ok){$('rmsg').className='msg bad';$('rmsg').textContent='Choose cheques between 1 and 255, the first no higher than the last.';return null}
+  const n=t-f+1,batches=Math.floor(t/B.BATCH)-Math.floor(f/B.BATCH)+1,pp=B.pages(f,t);
+  $('rmsg').className='msg';
+  $('rmsg').textContent=`${n} ${n===1?'cheque':'cheques'}, ${pp} pages per part. ${batches===1?'One registration':`${batches} registrations`} of 16 cheques (cheques ${Math.floor(f/B.BATCH)*B.BATCH}–${Math.min(B.BOOK-1,(Math.floor(t/B.BATCH)+1)*B.BATCH-1)}).`;
+  $('pa').textContent=`Recipient columns, cheques ${f}–${t}, ${pp} pages`;$('pb').textContent=`Amount, exponent and fee columns, cheques ${f}–${t}, ${pp} pages`;
+  return {f,t}}
+$('from').addEventListener('input',()=>range(true));$('to').addEventListener('input',()=>range(true));
+// quick picks: the next 16, 32 or 64 cheques from the chosen start, ending on a batch boundary
+function chips(){$('chips').innerHTML=[16,32,64].map(k=>`<button class="chip" data-k="${k}">Next ${k}</button>`).join('')+'<button class="chip" data-k="all">All the rest</button>'}
+chips();
+$('chips').addEventListener('click',e=>{const k=e.target.dataset.k;if(!k)return;const f=Math.max(1,+$('from').value||1);
+  const t=k==='all'?B.BOOK-1:Math.min(B.BOOK-1,Math.ceil((f+ +k)/B.BATCH)*B.BATCH-1);$('to').value=t;range(true)});
+
+function ticks(){$('ta').textContent=saved.A?'✓':'';$('tb').textContent=saved.B?'✓':'';$('tr').textContent=saved.R?'✓':'';
+  document.querySelectorAll('button.big').forEach(b=>b.classList.toggle('done',!!saved[b.dataset.part||'R']))}
+$('c3').addEventListener('click',async e=>{const b=e.target.closest('button.big');if(!b||!seed)return;const r=range();if(!r)return;
+  b.disabled=true;$('smsg').className='msg';$('smsg').textContent='Working…';
+  try{const mod=await WASM;
+    if(b.dataset.part){const p=b.dataset.part;B.save(`bitcheque-part-${p}-cheques-${r.f}-${r.t}.html`,await B.sheet({part:p,seed,first:r.f,last:r.t,mod}),'text/html');saved[p]=true;
+      $('smsg').textContent=`Part ${p} saved. Print it, then delete the file and empty the trash.`}
+    else{const reg=await B.registration({seed,first:r.f,last:r.t,mod});B.save(B.regName(reg),JSON.stringify(reg),'application/json');saved.R=true;
+      $('smsg').textContent='Registration file saved. It holds no secrets: carry it to any online computer.'}
+    ticks()}
+  catch(err){$('smsg').className='msg bad';$('smsg').textContent='Something went wrong: '+err.message}
+  b.disabled=false});
+$('clear').addEventListener('click',()=>{$('words').value='';seed=null;location.reload()});
+})();
+</script>
+</body>
+</html>
