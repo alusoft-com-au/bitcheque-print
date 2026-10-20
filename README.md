@@ -37,16 +37,17 @@ build checks that its own copy of the wasm is byte for byte the one inside this 
 ### Rebuilding the wasm
 
 The wasm is reproducible: the same node commit and the same Rust compiler give the same bytes on any machine.
-Local paths are mapped to `.` and symbol names (which carry a hash of the checkout's path) are stripped:
+Local paths are mapped to `.`, symbol names are stripped, and the wallet is built as a member of the node's
+workspace, so where the repo is checked out never changes the bytes:
 
 ```
 git clone https://github.com/alusoft-com-au/bitcheque-node && cd bitcheque-node
 git checkout <node commit>
 RUSTFLAGS="--remap-path-prefix=$PWD=. -C strip=symbols" \
-  cargo build --release --locked --manifest-path wallet-wasm/Cargo.toml --target wasm32-unknown-unknown
-sha256sum wallet-wasm/target/wasm32-unknown-unknown/release/bitcheque_web.wasm   # must equal SHA256SUMS
+  cargo build --locked --profile wasm -p bitcheque-web --target wasm32-unknown-unknown
+sha256sum target/wasm32-unknown-unknown/wasm/bitcheque_web.wasm   # must equal SHA256SUMS
 cd .. && git clone https://github.com/alusoft-com-au/bitcheque-print && cd bitcheque-print
-python3 build.py --wasm ../bitcheque-node/wallet-wasm/target/wasm32-unknown-unknown/release/bitcheque_web.wasm
+python3 build.py --wasm ../bitcheque-node/target/wasm32-unknown-unknown/wasm/bitcheque_web.wasm
 ```
 
 `build.py --wasm` refuses a wasm that still holds local paths (built without the flags above).
@@ -55,11 +56,8 @@ Current release:
 
 | | |
 |---|---|
-| node commit | recorded with the next wasm (the network reset release) |
+| node commit | ea865b8 |
 | Rust | rustc 1.99.0 (b940084d7 2026-09-28), target wasm32-unknown-unknown |
 | wasm sha256 | see `SHA256SUMS` (`bitcheque_web.wasm`) |
-
-The wasm in this page today was built before the path mapping above, so it cannot be rebuilt byte for byte; the next
-release replaces it with a reproducible one and fills in the node commit.
 
 This is an experimental research project; the network may change or be reset. MIT licence.
