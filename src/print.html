@@ -155,6 +155,10 @@ $('c3').addEventListener('click',async e=>{const b=e.target.closest('button.big'
   catch(err){$('smsg').className='msg bad';$('smsg').textContent='Something went wrong: '+err.message}
   b.disabled=false});
 $('clear').addEventListener('click',()=>{$('words').value='';seed=null;location.reload()});
+// leaving the page (or Back from another page) forgets the seed: a page restored from the browser's back-forward
+// cache would otherwise still hold the words
+addEventListener('pagehide',()=>{$('words').value='';seed=null;saved={}});
+addEventListener('pageshow',e=>{if(e.persisted)$('words').dispatchEvent(new Event('input'))});
 })();
 </script>
 </body>
