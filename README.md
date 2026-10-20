@@ -30,13 +30,36 @@ also used by the website) and the wallet's WebAssembly: the node's own Rust from
 [bitcheque-node](https://github.com/alusoft-com-au/bitcheque-node)/`wallet-wasm`, so registrations are built by the
 same code the chain checks them with.
 
+`SHA256SUMS` records two hashes: the page, and the wasm inside it (`bitcheque_web.wasm`). A plain `python3 build.py`
+reuses the recorded wasm and stops if it does not match; a new wasm is taken only with `--wasm PATH`. The website's
+build checks that its own copy of the wasm is byte for byte the one inside this page.
+
+### Rebuilding the wasm
+
+The wasm is reproducible: the same node commit and the same Rust compiler give the same bytes on any machine.
+Local paths are mapped to `.` and symbol names (which carry a hash of the checkout's path) are stripped:
+
 ```
-git clone https://github.com/alusoft-com-au/bitcheque-node
-(cd bitcheque-node/wallet-wasm && cargo build --release --target wasm32-unknown-unknown)
-git clone https://github.com/alusoft-com-au/bitcheque-print
-cd bitcheque-print && python3 build.py
+git clone https://github.com/alusoft-com-au/bitcheque-node && cd bitcheque-node
+git checkout <node commit>
+RUSTFLAGS="--remap-path-prefix=$PWD=. -C strip=symbols" \
+  cargo build --release --locked --manifest-path wallet-wasm/Cargo.toml --target wasm32-unknown-unknown
+sha256sum wallet-wasm/target/wasm32-unknown-unknown/release/bitcheque_web.wasm   # must equal SHA256SUMS
+cd .. && git clone https://github.com/alusoft-com-au/bitcheque-print && cd bitcheque-print
+python3 build.py --wasm ../bitcheque-node/wallet-wasm/target/wasm32-unknown-unknown/release/bitcheque_web.wasm
 ```
 
-The build is deterministic: the same sources and the same wallet wasm give the same file and the same `SHA256SUMS`.
+`build.py --wasm` refuses a wasm that still holds local paths (built without the flags above).
+
+Current release:
+
+| | |
+|---|---|
+| node commit | recorded with the next wasm (the network reset release) |
+| Rust | rustc 1.99.0 (b940084d7 2026-09-28), target wasm32-unknown-unknown |
+| wasm sha256 | see `SHA256SUMS` (`bitcheque_web.wasm`) |
+
+The wasm in this page today was built before the path mapping above, so it cannot be rebuilt byte for byte; the next
+release replaces it with a reproducible one and fills in the node commit.
 
 This is an experimental research project; the network may change or be reset. MIT licence.
