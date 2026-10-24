@@ -18,8 +18,7 @@ if "--wasm" in sys.argv:
 else:
     old = open(OUT, "rb").read()
     wasm = base64.b64decode(re.search(rb"atob\('([A-Za-z0-9+/=]+)'\)", old).group(1))
-    # the published page vouches for its wasm until SHA256SUMS records the wasm itself
-    if rec.get("bitcheque_web.wasm", sha(wasm) if rec.get("bitcheque-print.html") == sha(old) else None) != sha(wasm):
+    if rec.get("bitcheque_web.wasm") != sha(wasm):
         raise SystemExit("the wasm inside bitcheque-print.html does not match SHA256SUMS: restore it from git, or take a new one with --wasm PATH")
 src = lambda f: open(os.path.join(D, "src", f)).read()
 page = src("print.html")
