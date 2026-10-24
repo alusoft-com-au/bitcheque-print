@@ -56,7 +56,7 @@ Current release:
 
 | | |
 |---|---|
-| node commit | 004e2d8 |
+| node commit | ebd6e51 |
 | Rust | rustc 1.99.0 (b940084d7 2026-09-28), target wasm32-unknown-unknown |
 | wasm sha256 | see `SHA256SUMS` (`bitcheque_web.wasm`) |
 
